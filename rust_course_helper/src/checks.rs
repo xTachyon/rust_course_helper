@@ -97,7 +97,7 @@ fn check_commited_files(ctx: &mut Context) -> CheckResult {
     let max_lines = 20;
     let first_bad_files = &bad_files[..bad_files.len().min(max_lines)];
     let mut text = format!(
-        "build files were found in the repo. bad files: {}",
+        "build files were found in the repo. bad files:\n{}",
         first_bad_files.join("\n")
     );
     if bad_files.len() > max_lines {

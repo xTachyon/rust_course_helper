@@ -13,6 +13,7 @@ pub const CHECKS: &[CheckFn] = &[
     check_compiler_warnings,
     check_clippy,
     check_tests,
+    check_fmt,
 ];
 
 fn check_gitignore(ctx: &mut Context) -> CheckResult {
@@ -163,4 +164,12 @@ fn check_clippy(ctx: &mut Context) -> CheckResult {
 
 fn check_tests(ctx: &mut Context) -> CheckResult {
     run_cargo(ctx, &["test", "--all", "-q"], "code has failed tests")
+}
+
+fn check_fmt(ctx: &mut Context) -> CheckResult {
+    run_cargo(
+        ctx,
+        &["fmt", "--all", "--check", "-q"],
+        "code is not formatted",
+    )
 }

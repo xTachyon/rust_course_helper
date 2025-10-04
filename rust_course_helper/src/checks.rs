@@ -1,12 +1,19 @@
 use crate::{CheckResult, Context};
 use std::{
     fs,
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
 };
 
 pub type CheckFn = fn(ctx: &mut Context) -> CheckResult;
 
-pub const CHECKS: &[CheckFn] = &[check_gitignore, check_commited_files];
+pub const CHECKS: &[CheckFn] = &[
+    check_gitignore,
+    check_commited_files,
+    check_lab_folder,
+    check_compiler_warnings,
+    check_clippy,
+    check_tests,
+];
 
 fn check_gitignore(ctx: &mut Context) -> CheckResult {
     let gitignore_path = ctx.repo_path.join(".gitignore");
@@ -37,10 +44,10 @@ fn check_gitignore(ctx: &mut Context) -> CheckResult {
     Ok(())
 }
 
-fn command_check_return(ctx: &mut Context, name: &str, e: ExitStatus) -> CheckResult {
+fn command_check_return(ctx: &mut Context, name: &str, e: ExitStatus, text: &str) -> CheckResult {
     if !e.success() {
         return Err(ctx.problems.add(
-            format!("command `{name}` failed: {e}"),
+            format!("{text}; command `{name}` failed: {e}"),
             Some(ctx.repo_path.clone()),
             None,
         ));
@@ -63,7 +70,7 @@ fn check_commited_files(ctx: &mut Context) -> CheckResult {
             ));
         }
     };
-    command_check_return(ctx, "git", output.status)?;
+    command_check_return(ctx, "git", output.status, "failed")?;
 
     let stdout = String::from_utf8(output.stdout).expect("from_utf8 failed.. somehow");
 
@@ -101,4 +108,59 @@ fn check_commited_files(ctx: &mut Context) -> CheckResult {
         Some(ctx.repo_path.clone()),
         Some("remove target directories and all build artifacts".into()),
     ))
+}
+
+fn check_lab_folder(ctx: &mut Context) -> CheckResult {
+    if !ctx.lab_path.exists() {
+        return Err(ctx
+            .problems
+            .add("lab folder doesn't exist", Some(ctx.lab_path.clone()), None));
+    }
+
+    Ok(())
+}
+
+fn run_cargo(ctx: &mut Context, args: &[&str], text: &str) -> CheckResult {
+    println!("running command: cargo {}", args.join(" "));
+
+    let run = |cmd: &mut Command| cmd.spawn()?.wait_with_output();
+    let output = match run(Command::new("cargo")
+        .args(args)
+        .current_dir(&ctx.lab_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped()))
+    {
+        Ok(x) => x,
+        Err(e) => {
+            return Err(ctx.problems.add(
+                format!("{}; because: cargo failed with `{e}`", text),
+                Some(ctx.lab_path.clone()),
+                None,
+            ));
+        }
+    };
+
+    if ctx.verbose {
+        println!(
+            "stdout:\n{}stderr:\n{}",
+            String::from_utf8(output.stdout).expect("string is not utf8"),
+            String::from_utf8(output.stderr).expect("string is not utf8"),
+        );
+    }
+
+    command_check_return(ctx, "cargo", output.status, text)?;
+
+    Ok(())
+}
+
+fn check_compiler_warnings(ctx: &mut Context) -> CheckResult {
+    run_cargo(ctx, &["build", "--all", "-q"], "code has compiler warnings")
+}
+
+fn check_clippy(ctx: &mut Context) -> CheckResult {
+    run_cargo(ctx, &["clippy", "--all", "-q"], "code has clippy warnings")
+}
+
+fn check_tests(ctx: &mut Context) -> CheckResult {
+    run_cargo(ctx, &["test", "--all", "-q"], "code has failed tests")
 }

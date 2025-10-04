@@ -12,6 +12,8 @@ struct Args {
     repo: Utf8PathBuf,
     #[arg(short, long)]
     lab: String,
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 struct Diag {
@@ -37,7 +39,7 @@ impl Diags {
         self.problems.push(Diag {
             text: text.into(),
             path,
-            help: help.map(|x| x.into()),
+            help,
         });
         CheckError
     }
@@ -47,16 +49,18 @@ impl Diags {
             return;
         }
 
-        println!("some problems were found:");
+        println!("\nsome problems were found:");
 
         for problem in self.problems {
-            println!("{}: {}", "error".red(), problem.text);
+            println!("{}: {}", "checker error".bright_red(), problem.text);
             if let Some(path) = problem.path {
                 println!("{}: {}", "path".purple(), path);
             }
             if let Some(help) = problem.help {
                 println!("{}: {}", "help".blue(), help);
             }
+
+            println!();
         }
     }
 }
@@ -78,6 +82,7 @@ struct Context<'x> {
     problems: &'x mut Diags,
     repo_path: Utf8PathBuf,
     lab_path: Utf8PathBuf,
+    verbose: bool,
 }
 
 fn main_impl(problems: &mut Diags) -> CheckResult {
@@ -90,6 +95,7 @@ fn main_impl(problems: &mut Diags) -> CheckResult {
         problems,
         repo_path: args.repo,
         lab_path,
+        verbose: args.verbose,
     };
 
     let mut result = Ok(());

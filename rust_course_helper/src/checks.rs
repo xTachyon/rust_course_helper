@@ -122,7 +122,9 @@ fn check_lab_folder(ctx: &mut Context) -> CheckResult {
 }
 
 fn run_cargo(ctx: &mut Context, args: &[&str], text: &str) -> CheckResult {
-    println!("running command: cargo {}", args.join(" "));
+    if ctx.verbose {
+        println!("running command: cargo {}", args.join(" "));
+    }
 
     let run = |cmd: &mut Command| cmd.spawn()?.wait_with_output();
     let output = match run(Command::new("cargo")
